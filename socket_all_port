@@ -1,0 +1,16 @@
+import socket
+
+# Créez un socket UDP
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+# Associez le socket à une adresse IP et un port
+sock.bind(('0.0.0.0', 63393))  # Remplacez 0.0.0.0 par votre adresse IP si nécessaire
+
+print("En écoute sur 0.0.0.0:63393")
+
+try:
+    while True:
+        data, addr = sock.recvfrom(1024)  # Taille du buffer à 1024 bytes
+        print(f"Données reçues de {addr}: {data}")
+finally:
+    sock.close()

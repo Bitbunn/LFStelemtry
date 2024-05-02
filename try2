@@ -1,0 +1,49 @@
+import socket
+import struct
+import numpy as np
+
+# Configuration du socket
+IP = '127.0.0.1'
+PORT = 30000
+BUFFER_SIZE = 1024  # Taille de buffer suffisante pour recevoir les paquets entiers
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((IP, PORT))
+
+print(f"Écoute sur {IP}:{PORT} pour les données OutSim...")
+
+seuil_collision = 25.0  # Seuil de détection de collision basé sur l'accélération
+derniere_acceleration = np.array([0.0, 0.0, 0.0])
+
+try:
+    while True:
+        data, addr = sock.recvfrom(BUFFER_SIZE)
+        if not data:
+            print("Connexion perdue.")
+            break
+        
+        print(f"Reçu {len(data)} octets de {addr}")
+
+        # Vérifiez la taille du paquet pour s'assurer de la conformité
+        if len(data) == 64:  # Assurez-vous que c'est la bonne taille pour un paquet OutSim
+            try:
+                # Décodez les données selon le format OutSim
+                unpacked = struct.unpack('I12f3i', data)
+                time = unpacked[0]
+                accel = np.array(unpacked[7:10])  # Extraction des composantes d'accélération
+
+                # Calcul de la norme de la différence d'accélération
+                delta_accel = np.linalg.norm(accel - derniere_acceleration)
+                if delta_accel > seuil_collision:
+                    print(f"Collision détectée à {time}! Changement d'accélération: {delta_accel}")
+
+                # Mise à jour de la dernière accélération
+                derniere_acceleration = accel
+
+            except struct.error as e:
+                print(f"Erreur de décodage: {e}")
+        else:
+            print(f"Taille de paquet inattendue: {len(data)} octets. Paquet ignoré.")
+finally:
+    sock.close()
+    print("Socket fermé.")

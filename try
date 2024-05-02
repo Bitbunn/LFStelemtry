@@ -1,0 +1,32 @@
+import socket
+import struct
+
+# Créer un socket UDP pour écouter les données OutSim
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind(('127.0.0.1', 30000))
+
+print("En écoute sur 127.0.0.1:30000 pour les données OutSim...")
+
+try:
+    while True:
+        data, addr = sock.recvfrom(1024)  # Recevoir les données
+        if not data:
+            break  # Arrêt si la connexion est perdue
+
+        # Décoder les données selon le format OutSim (exemple : 'I12f3i')
+        # Ce format doit être ajusté selon la documentation spécifique de OutSim
+        unpacked = struct.unpack('I12f3i', data)
+        time, ang_vel_x, ang_vel_y, ang_vel_z, *rest = unpacked
+
+        # Exemple de détection de collision : vérifier un changement brusque dans les valeurs angulaires
+        if abs(ang_vel_x) > threshold or abs(ang_vel_y) > threshold or abs(ang_vel_z) > threshold:
+            print(f"Collision possible détectée à {time}!")
+
+        # Exemple de détection de sortie de route : à définir selon les coordonnées ou autres paramètres
+        pos_x, pos_y, pos_z = rest[-3:]
+        if not (zone_sécurisée_x_min < pos_x < zone_sécurisée_x_max):
+            print(f"Sortie de route possible à {time}!")
+
+finally:
+    sock.close()
+    print("Socket fermé.")

@@ -1,0 +1,47 @@
+import socket
+import struct
+import numpy as np
+
+# Configuration du socket UDP
+IP = "0.0.0.0"
+PORT = 29999  # Port sur lequel LFS envoie les données OutSim, ajustez selon votre configuration
+BUFFER_SIZE = 1024  # Taille du buffer pour la réception des données
+
+# Créer un socket UDP
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((IP, PORT))
+
+print(f"Écoute des données UDP sur {IP}:{PORT}")
+
+try:
+    # Dernières valeurs d'accélération pour la détection des changements
+    derniere_accel = np.array([0.0, 0.0, 0.0])
+    seuil_acceleration = 5.0  # Seuil d'accélération pour détecter une collision ou une accélération brusque
+
+    while True:
+        # Réception des données
+        data, addr = sock.recvfrom(BUFFER_SIZE)
+        
+        # Supposons que vous recevez le paquet complet d'OutSim avec toutes les données
+        # Vous devriez adapter le format de struct.unpack selon les données réellement envoyées
+        unpacked = struct.unpack('<3f3f3f3i', data[:48])
+        ang_vel = np.array(unpacked[:3])
+        accel = np.array(unpacked[6:9])
+        
+        # Calcul de la norme de l'accélération pour détecter les collisions ou accélérations brusques
+        delta_accel = np.linalg.norm(accel - derniere_accel)
+        
+        if delta_accel > seuil_acceleration:
+            print(f"Événement brusque détecté! Changement d'accélération: {delta_accel:.2f}")
+        
+        # Mise à jour des dernières valeurs d'accélération
+        derniere_accel = accel
+        
+        # Exemple de détection de sortie de route (ajouter votre logique basée sur la position ou autre indicateur)
+        # if condition_pour_sortie_de_route:
+        #     print("Sortie de route détectée!")
+
+except KeyboardInterrupt:
+    print("Arrêt de l'écoute des données UDP.")
+finally:
+    sock.close()

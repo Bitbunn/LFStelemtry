@@ -1,0 +1,30 @@
+import socket
+import struct
+import numpy as np
+
+# Créez un socket UDP
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind(('127.0.0.1', 30000))
+
+print("Écoute sur 127.0.0.1:30000...")
+
+try:
+    while True:
+        data, addr = sock.recvfrom(1024)  # Buffer suffisamment grand pour tout paquet attendu
+        print(f"Reçu {len(data)} octets")  # Afficher la taille des données reçues
+
+        if len(data) != 64:
+            print("Taille de paquet inattendue.")
+            continue  # Passez ce paquet si la taille n'est pas celle attendue
+
+        # Décodage du paquet
+        try:
+            outsim_pack = struct.unpack('I12f3i', data)
+            time = outsim_pack[0]
+            print(f"Données reçues à {time} avec succès.")
+        except struct.error as e:
+            print(f"Erreur de décodage: {e}")
+
+finally:
+    sock.close()
+    print("Socket fermé.")

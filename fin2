@@ -1,0 +1,19 @@
+import socket
+import struct
+
+# Configuration du socket UDP
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind(('127.0.0.1', 63393))
+
+try:
+    while True:
+        data, _ = sock.recvfrom(312)  # Taille ajustée du buffer
+        if len(data) != 312:
+            print(f"Unexpected packet size: {len(data)} bytes")
+            continue
+
+        unpacked_data = struct.unpack(new_format, data)
+        print("Unpacked Data:", unpacked_data)
+
+finally:
+    sock.close()

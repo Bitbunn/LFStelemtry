@@ -1,0 +1,41 @@
+import socket
+import struct
+
+# Configuration du socket UDP
+IP = '127.0.0.1'  # Adresse IP à écouter (localhost dans votre cas)
+PORT = 63393      # Port configuré dans cfg.txt pour OutSim
+BUFFER_SIZE = 280  # Taille du buffer pour recevoir les paquets, doit correspondre à la taille du paquet
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((IP, PORT))
+
+print(f"Listening on {IP}:{PORT} for OutSim data...")
+
+# Format pour struct.unpack, ajusté selon la spécification donnée
+packet_format = '4s I I 3f f f f 3f 3f 3i 5f 4B 2f 2f 4f 4B 8f 4B 8f 4B 8f 4B 8f 4B'
+
+try:
+    while True:
+        data, addr = sock.recvfrom(BUFFER_SIZE)
+        if not data:
+            continue
+
+        # Assurer que la taille du paquet reçu correspond à la taille attendue
+        if len(data) == 280:
+            unpacked_data = struct.unpack(packet_format, data)
+
+            # Extrait les données de télémétrie à partir du paquet décodé
+            header, id_packet, timestamp, ang_vel, heading, pitch, roll, accel, vel, pos = unpacked_data[:10]
+            rest_of_data = unpacked_data[10:]  # Cette variable contient le reste des données non spécifiées ici
+
+            print(f"Header: {header.decode('utf-8')}, Packet ID: {id_packet}, Timestamp: {timestamp}")
+            print(f"Angular Velocity: {ang_vel}, Heading: {heading}, Pitch: {pitch}, Roll: {roll}")
+            print(f"Acceleration: {accel}, Velocity: {vel}, Position: {pos}")
+            print("Additional Data:", rest_of_data)
+
+        else:
+            print(f"Unexpected packet size: {len(data)} bytes")
+
+finally:
+    sock.close()
+    print("Socket closed.")

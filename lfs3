@@ -1,0 +1,41 @@
+import socket
+import struct
+
+# Define the socket connection
+UDP_IP = "0.0.0.0"
+UDP_PORT = 50000
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP, UDP_PORT))
+
+def decode_outsim_packet(data):
+    if len(data) != 280:
+        raise ValueError(f"Expected 280 bytes of data, received {len(data)} bytes")
+
+    # Format string for 280 bytes of OutSim data assuming no IP/UDP headers
+    fmt = '<I I 3f 3f 3f 3f 3f'  # Adjusted to match the 280-byte structure
+    unpacked_data = struct.unpack(fmt, data)
+
+    return {
+        "Time (ms)": unpacked_data[0],
+        "Car ID": unpacked_data[1],
+        "Angular Velocity (X, Y, Z)": unpacked_data[2:5],
+        "Orientation (Heading, Pitch, Roll)": unpacked_data[5:8],
+        "Position (X, Y, Z)": unpacked_data[8:11],
+        "Velocity (X, Y, Z)": unpacked_data[11:14],
+        "Acceleration (X, Y, Z)": unpacked_data[14:17]
+    }
+
+print(f"Listening on {UDP_IP}:{UDP_PORT} for OutSim packets...")
+
+try:
+    while True:
+        packet, addr = sock.recvfrom(1024)  # Larger buffer to accommodate any size variations
+        try:
+            decoded_packet = decode_outsim_packet(packet)
+            print(f"Received and decoded packet from {addr}: {decoded_packet}")
+        except ValueError as e:
+            print(e)
+except KeyboardInterrupt:
+    print("Server stopped manually.")
+finally:
+    sock.close()

@@ -1,0 +1,44 @@
+import socket
+import struct
+
+def decode_outsim_packet(data):
+    # Check if the received data is at least 68 bytes long
+    if len(data) < 68:
+        print("Error: Data received is less than 68 bytes.")
+        return None
+
+    # Assuming the first 68 bytes include the OutSim data you want to decode
+    outsim_fmt = '<I I 3f 3f 3f 3f 3f'  # Corresponding to the 68 bytes structure
+    telemetry_data = data[:68]  # Extract the first 68 bytes
+
+    unpacked_data = struct.unpack(outsim_fmt, telemetry_data)
+    return {
+        "Time (ms)": unpacked_data[0],
+        "Car ID": unpacked_data[1],
+        "Angular Velocity (X, Y, Z)": unpacked_data[2:5],
+        "Orientation (Heading, Pitch, Roll)": unpacked_data[5:8],
+        "Position (X, Y, Z)": unpacked_data[8:11],
+        "Velocity (X, Y, Z)": unpacked_data[11:14],
+        "Acceleration (X, Y, Z)": unpacked_data[14:17]
+    }
+
+# Setup UDP socket
+UDP_IP = "0.0.0.0"
+UDP_PORT = 50000
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP, UDP_PORT))
+
+print(f"Listening on {UDP_IP}:{UDP_PORT}...")
+
+try:
+    while True:
+        packet, addr = sock.recvfrom(1024)  # Larger buffer to accommodate any size variations
+        decoded_packet = decode_outsim_packet(packet)
+        if decoded_packet:
+            print(f"Received and decoded packet from {addr}: {decoded_packet}")
+        else:
+            print("Failed to decode packet due to incorrect size.")
+except KeyboardInterrupt:
+    print("Server stopped manually.")
+finally:
+    sock.close()

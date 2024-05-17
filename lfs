@@ -1,0 +1,38 @@
+import socket
+import struct
+
+def decode_outsim_packet(data):
+    # Assuming data starts after the 28-byte IP/UDP headers
+    outsim_fmt = '<I I 3f 3f 3f 3f 3f'  # Format string as per OutSim telemetry fields
+    telemetry_data = struct.unpack(outsim_fmt, data[28:96])  # Skip first 28 bytes for headers
+
+    return {
+        "Time (ms)": telemetry_data[0],
+        "Car ID": telemetry_data[1],
+        "Angular Velocity (X, Y, Z)": telemetry_data[2:5],
+        "Orientation (Heading, Pitch, Roll)": telemetry_data[5:8],
+        "Position (X, Y, Z)": telemetry_data[8:11],
+        "Velocity (X, Y, Z)": telemetry_data[11:14],
+        "Acceleration (X, Y, Z)": telemetry_data[14:17]
+    }
+
+# Setup UDP socket
+UDP_IP = "0.0.0.0"  # Listen on all interfaces
+UDP_PORT = 50000
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP, UDP_PORT))
+
+print(f"Listening on {UDP_IP}:{UDP_PORT} for OutSim packets...")
+
+try:
+    while True:
+        packet, addr = sock.recvfrom(1024)  # Buffer size larger than 308 for safety
+        if len(packet) >= 308:
+            decoded_packet = decode_outsim_packet(packet)
+            print(f"Received and decoded packet from {addr}: {decoded_packet}")
+        else:
+            print(f"Received packet of incorrect size {len(packet)} bytes from {addr}")
+except KeyboardInterrupt:
+    print("Server stopped manually.")
+finally:
+    sock.close()

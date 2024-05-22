@@ -1,0 +1,82 @@
+import socket
+import struct
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import numpy as np
+
+# Configuration initiale de matplotlib
+fig, axes = plt.subplots(3, 1, figsize=(10, 15))  # Trois graphiques sur une colonne
+lines = [ax.plot([], [], label=label)[0] for ax, label in zip(axes, ['Position X', 'Velocity Magnitude', 'Acceleration Magnitude'])]
+for ax, label in zip(axes, ['Position', 'Velocity', 'Acceleration']):
+    ax.set_title(label)
+    ax.legend()
+
+# Initialiser les listes pour stocker les données
+times = []
+x_positions = []
+velocities = []
+accelerations = []
+
+# Initialize plots
+def init():
+    for ax in axes:
+        ax.set_xlim(0, 10)  # Initialise avec un intervalle de 10 secondes
+        ax.set_ylim(-10, 10)
+    return lines
+
+# Decode OutSim packet
+def decode_outsim_packet(data):
+    outsim_fmt = '<I I 3f 3f 3f 3f 3f'
+    unpacked_data = struct.unpack(outsim_fmt, data[:68])
+    return {
+        "Time (ms)": unpacked_data[0],
+        "Car ID": unpacked_data[1],
+        "Angular Velocity (X, Y, Z)": unpacked_data[2:5],
+        "Heading": unpacked_data[5],
+        "Pitch": unpacked_data[6],
+        "Roll": unpacked_data[7],
+        "Acceleration (X, Y, Z)": unpacked_data[8:11],
+        "Velocity (X, Y, Z)": unpacked_data[11:14],
+        "Position (X, Y, Z)": unpacked_data[14:17]
+    }
+
+# Setup UDP socket
+UDP_IP = "0.0.0.0"
+UDP_PORT = 50000
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP, UDP_PORT))
+sock.settimeout(0.1)
+
+# Update function for the animation
+def update(frame):
+    try:
+        packet, addr = sock.recvfrom(1024)
+        decoded_packet = decode_outsim_packet(packet)
+        if decoded_packet:
+            time = decoded_packet['Time (ms)'] / 1000.0  # Convert ms to seconds
+            position = decoded_packet['Position (X, Y, Z)'][0]  # X position
+            velocity = np.linalg.norm(decoded_packet['Velocity (X, Y, Z)'])
+            acceleration = np.linalg.norm(decoded_packet['Acceleration (X, Y, Z)'])
+
+            times.append(time)
+            x_positions.append(position)
+            velocities.append(velocity)
+            accelerations.append(acceleration)
+
+            # Update data
+            lines[0].set_data(times, x_positions)
+            lines[1].set_data(times, velocities)
+            lines[2].set_data(times, accelerations)
+
+            # Adjust axes
+            for ax, data in zip(axes, [x_positions, velocities, accelerations]):
+                ax.set_xlim(min(times), max(times))
+                ax.set_ylim(min(data) * 1.1, max(data) * 1.1)
+
+    except socket.timeout:
+        pass
+    return lines
+
+# Animation
+ani = animation.FuncAnimation(fig, update, init_func=init, blit=True, interval=50)
+plt.show()

@@ -1,1 +1,18 @@
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
+fig, ax = plt.subplots()
+xdata, ydata = [], []
+
+def update(frame):
+    packet, addr = sock.recvfrom(1024)
+    decoded_packet = decode_outsim_packet(packet)
+    if decoded_packet:
+        xdata.append(decoded_packet['Time (ms)'])
+        ydata.append(decoded_packet['Position (X, Y, Z)'][0])
+        ax.clear()
+        ax.plot(xdata, ydata)
+    return ax,
+
+ani = animation.FuncAnimation(fig, update, interval=100)
+plt.show()

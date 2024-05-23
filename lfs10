@@ -1,0 +1,76 @@
+import socket
+import struct
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import numpy as np
+
+# Configuration initiale de matplotlib
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))  # Deux graphiques: position et vitesse
+line1, = ax1.plot([], [], 'r-', label='Trajectory (X, Y)')
+line2, = ax2.plot([], [], 'g-', label='Speed Magnitude')
+
+ax1.set_title('Vehicle Trajectory')
+ax1.set_xlabel('X Position (meters)')
+ax1.set_ylabel('Y Position (meters)')
+ax1.legend()
+
+ax2.set_title('Vehicle Speed')
+ax2.set_xlabel('Time (s)')
+ax2.set_ylabel('Speed (m/s)')
+ax2.legend()
+
+x_positions, y_positions, times, speeds = [], [], [], []
+
+def init():
+    ax1.set_xlim(-100, 100)
+    ax1.set_ylim(-100, 100)
+    ax2.set_xlim(0, 10)
+    ax2.set_ylim(0, 50)
+    return line1, line2
+
+def decode_outsim_packet(data):
+    outsim_fmt = '<4s I I 3f f f f 3f 3f 3f f f f f f 4f f f f f f f f f 4x 4f 4x 4f 4x 4f 4x 4f 4x'
+    unpacked_data = struct.unpack(outsim_fmt, data[:272])
+    return {
+        "Time (ms)": unpacked_data[2],
+        "Position (X, Y, Z)": unpacked_data[15:18],
+        "Velocity (X, Y, Z)": unpacked_data[12:15],
+    }
+
+# Setup UDP socket
+UDP_IP = "0.0.0.0"
+UDP_PORT = 50000
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP, UDP_PORT))
+sock.settimeout(0.1)
+
+def update(frame):
+    try:
+        packet, addr = sock.recvfrom(1024)
+        decoded_packet = decode_outsim_packet(packet)
+        if decoded_packet:
+            time = decoded_packet['Time (ms)'] / 1000.0  # Convert ms to seconds
+            pos_x, pos_y, _ = decoded_packet['Position (X, Y, Z)']
+            speed = np.linalg.norm(decoded_packet['Velocity (X, Y, Z)'])
+
+            x_positions.append(pos_x)
+            y_positions.append(pos_y)
+            times.append(time)
+            speeds.append(speed)
+
+            # Update the trajectory plot
+            line1.set_data(x_positions, y_positions)
+            ax1.set_xlim(min(x_positions) - 10, max(x_positions) + 10)
+            ax1.set_ylim(min(y_positions) - 10, max(y_positions) + 10)
+
+            # Update the speed plot
+            line2.set_data(times, speeds)
+            ax2.set_xlim(min(times), max(times))
+            ax2.set_ylim(0, max(speeds) + 10)
+
+    except socket.timeout:
+        print("Timeout - No packet received.")
+    return line1, line2
+
+ani = animation.FuncAnimation(fig, update, init_func=init, interval=50)
+plt.show()

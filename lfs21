@@ -1,0 +1,63 @@
+import socket
+import struct
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
+# Initial setup for matplotlib
+fig, ax = plt.subplots()
+line, = ax.plot([], [], 'ro-', label='Vehicle Path')  # Initialize the plot line for the trajectory
+ax.set_xlim(-100, 100)  # Set initial limits, adjust as necessary
+ax.set_ylim(-100, 100)
+ax.set_title('Real-time Vehicle Trajectory')
+ax.set_xlabel('X Position (meters)')
+ax.set_ylabel('Y Position (meters)')
+ax.grid(True)
+ax.legend()
+
+def decode_outsim_packet(data):
+    if len(data) < 272:  # La taille de paquet complète mentionnée
+        print("Error: Data received is less than 272 bytes.")
+        return None
+
+    outsim_fmt = '<4s I I 3f f f f 3f 3f 3f f f f f f 4f f f f f f f f f 4x 4f 4x 4f 4x 4f 4x 4f 4x'
+    unpacked_data = struct.unpack(outsim_fmt, data[:272])
+    return {
+        "Position (X, Y, Z)": unpacked_data[15:18],
+    }
+
+# Setup UDP socket
+UDP_IP = "0.0.0.0"
+UDP_PORT = 50000
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP, UDP_PORT))
+sock.settimeout(0.1)  # Set a timeout for socket operations
+
+x_data, y_data = [], []
+
+def update(frame):
+    try:
+        packet, _ = sock.recvfrom(1024)
+        decoded_packet = decode_outsim_packet(packet)
+        if decoded_packet:
+            x, y, _ = decoded_packet['Position (X, Y, Z)']
+            x_data.append(x)
+            y_data.append(y)
+            line.set_data(x_data, y_data)
+            ax.set_xlim(min(x_data) - 10, max(x_data) + 10)
+            ax.set_ylim(min(y_data) - 10, max(y_data) + 10)
+            return line,
+    except socket.timeout:
+        print("No packet received.")
+    except Exception as e:
+        print(f"Error: {e}")
+
+ani = animation.FuncAnimation(fig, update, interval=50)
+plt.show()
+
+try:
+    ani
+except KeyboardInterrupt:
+    print("Stopped manually.")
+finally:
+    sock.close()
+    plt.close()
